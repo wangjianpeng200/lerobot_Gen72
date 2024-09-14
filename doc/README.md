@@ -18,7 +18,7 @@ ffmpeg安装需使用ffmpeg官方指导教程
 
 ### 硬件采购
 
-请组装好机器人。在默认配置中，主动臂与从动臂分别为Koch机器人，其硬件配置如下：
+请组装好机器人。在默认配置中，主动臂为Koch机器人，从臂为RML-gen72,其硬件配置如下：
 
 - 主动臂：有七个关节，以及一个夹爪。每个关节可驱动一个Dynamixel XL330-288舵机，夹爪部分驱动Dynamixel XL330-077舵机，接5V电源。
     - 硬件需求：
@@ -32,6 +32,7 @@ ffmpeg安装需使用ffmpeg官方指导教程
 以下为参考图：
 - 主臂：
 ![alt text](images/image.png)
+
 - 从臂：
 ![alt text](images/image-1.png)
 
@@ -82,7 +83,7 @@ ffmpeg安装需使用ffmpeg官方指导教程
 
 ### 机器人硬件参数配置
 
-请在[```lerobot/common/robot_devices/robots/factory.py```](../lerobot/common/robot_devices/robots/factory.py)文件第9行至第42行配置机器人硬件参数：
+请在[```lerobot/common/robot_devices/robots/factory.py```](../lerobot/common/robot_devices/robots/factory.py)文件中配置主动臂机器人硬件参数：
 
 ```python
  robot = KochRobot
@@ -111,7 +112,7 @@ ffmpeg安装需使用ffmpeg官方指导教程
 其中：
 - ```leader_arms```参数为主动臂参数，```follwer_arms```参数为从动臂参数。
 - ```port```参数为串口号，指代的是Linux下USB串口设备文件，如```/dev/ttyUSB0```。
-    请使用前再三确认其是否对应，主动臂与从动臂不可弄反，可通过接入的先后顺序来判断分别为哪一个设备文件。运行程序前请确保串口设备文件存在，否则可能导致程序无法正常运行，并运行```sudo chmod 666 /dev/ttyUSB0```命令赋予串口设备文件权限。
+    运行程序前请确保串口设备文件存在，否则可能导致程序无法正常运行，并运行```sudo chmod 666 /dev/ttyUSB0```命令赋予串口设备文件权限。
 - ```motors```参数为机械臂的索引号和型号，如```(1, "xl330-m288")```。
     第一个数为索引号，第二个数为机械臂型号，请根据实际情况填写，如有机械臂型号不同，请务必对应进行修改。
 - ```cameras```参数为相机的索引号和参数，可更改其帧率与分辨率，建议其配置至少在代码此处所给出的默认配置，勿自行降低。
@@ -143,7 +144,7 @@ python lerobot/scripts/control_robot.py teleoperate --fps 30
 ```
 
 其中```teleoperate```为控制模式，```--fps```为帧率，可根据机器人性能调整。
-在首次启动之际，请将主动臂恢复至初始零位姿态，轻按两次回车键，便会生成.cache文件。而在每一次代码运行之前，需将主动臂归为零位，确保操作过程中速率适中，主动臂与从动臂的关节角度相同，不相偏离过多
+在首次启动之际，请将主动臂恢复至初始零位姿态，轻按两次回车键，便会生成.cache文件。而在每一次代码运行之前，需将主动臂归为零位，确保操作过程中速率适中。
 
 零位姿态如图所示：
 ![alt text](images/image-12.png)

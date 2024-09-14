@@ -492,19 +492,16 @@ class KochRobot:
             giper_trans=round(giper_trans, 2)
             for i in range(7):
                 self.joint_teleop_write[i] = ctypes.c_float(round(float(self.joint_teleop_write[i]), 2))
-                # print(f"Value at index {i}: {float(self.joint_teleop_write[i]):.2f}")
-            # print('Value at index 7:',giper_trans)
+
 
             self.pDll.Movej_CANFD(self.nSocket,self.joint_teleop_write,FLAG_FOLLOW,0)
             #夹爪控制
             #状态为张开，且需要关闭夹爪
             if (giper_trans < 21) and (self.gipflag == 1):
-                # ret_giper = self.pDll.Write_Single_Register(self.nSocket, 1, 40000, int(giper_trans), 1, 1)
                 ret_giper = self.pDll.Write_Single_Register(self.nSocket, 1, 40000, 10, 1, 1)
                 self.gipflag=0
             #状态为闭合，且需要张开夹爪
             if (giper_trans > 79) and (self.gipflag == 0):
-                # ret_giper = self.pDll.Write_Single_Register(self.nSocket, 1, 40000, int(giper_trans), 1, 1)
                 ret_giper = self.pDll.Write_Single_Register(self.nSocket, 1, 40000, 100, 1, 1)
                 self.gipflag=1
             self.logs[f"write_follower_{name}_goal_pos_dt_s"] = time.perf_counter() - now
