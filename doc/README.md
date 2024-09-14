@@ -119,7 +119,7 @@ ffmpeg安装需使用ffmpeg官方指导教程
 
 ## 机器人串口通讯配置
 
-请在[```lerobot/common/robot_devices/motors/dynamixel.py```](../lerobot/common/robot_devices/motors/dynamixel.py)文件第24行进行配置。
+请在[```lerobot/common/robot_devices/motors/dynamixel.py```](../lerobot/common/robot_devices/motors/dynamixel.py)文件中进行配置。
 
 此处只需配置波特率，代码如下：
 
@@ -184,6 +184,7 @@ python lerobot/scripts/control_robot.py record_dataset \
     --reset-time-s 10
 ```
 在录制过程中，利用左键操作能够重新捕捉当前轮次的数据，而右键的使用则允许您跳过当前的录制步骤。请注意，动臂设计时考虑到了关节限位，因此在操作时请避免大幅度移动，以免超出安全范围。为了确保录制数据的质量与有效性，请在整个过程中维持平稳、适中的速度。这样不仅能够提高数据的准确性，还能有效避免潜在的操作风险。
+
 在“reset-time-s”阶段，主动臂无法对从动臂进行控制。在此情形下，可以将被抓取物的位置还原，为下一次抓取做好准备。不过，切勿大幅度移动主动臂。一旦主动臂关节与从动臂关节之间的角度差值超过 10 度，就会致使控制出现异常状况。
 录制的数据集将保存在当前文件夹下的data/$USER/koch_pick_place_lego路径下，$USER为您的huggingface账户名。
 
