@@ -18,6 +18,7 @@ from lerobot.common.robot_devices.motors.dynamixel import (
 from lerobot.common.robot_devices.motors.utils import MotorsBus
 from lerobot.common.robot_devices.utils import RobotDeviceAlreadyConnectedError, RobotDeviceNotConnectedError
 from concurrent.futures import ThreadPoolExecutor
+from Robotic_Arm.rm_robot_interface import *
 
 
 URL_HORIZONTAL_POSITION = {
@@ -328,68 +329,37 @@ class KochRobot:
         self.cameras = self.config.cameras
         self.is_connected = False
         self.logs = {}
-        #  gen72机械臂接入，dll文件路径
-        dllPath = '/home/s402/lerobot/one/lerobot-opi-main_gen72/lerobot-gen72/lerobot/common/robot_devices/robots/libRM_Base.so'
-        self.pDll = ctypes.cdll.LoadLibrary(dllPath)
-        #  连接机械臂
-        self.pDll.RM_API_Init(72,0) 
-        byteIP = bytes("192.168.1.18","gbk")
-        self.nSocket = self.pDll.Arm_Socket_Start(byteIP, 8080, 200)
-        print (self.nSocket)
-        #  夹爪标志位
+        #------------------connect gen72 API------------------
+        self.robot = RoboticArm(rm_thread_mode_e.RM_TRIPLE_MODE_E)
+        self.arm=self.robot.rm_create_robot_arm("192.168.1.18", 8080)
+        #------------------init gen72 API----------------------
+        self.arm.rm_set_arm_run_mode(2)
+        self.arm.rm_set_tool_voltage(3) 
+        self.arm.rm_set_modbus_mode(1,115200,2)   
+        self.write_params = rm_peripheral_read_write_params_t(1, 40000, 1)
+        self.arm.rm_write_single_register(self.write_params,100) 
+        self.arm.rm_change_tool_frame("lebai2")
+        #-------------------
         self.gipflag=1
         self.gipflag_send=1
-        # self.gipvalue=80
         #远程操控部分-读取领导臂的目标位置
         self.leader_pos = {}
         #远程操控部分-写入gen72 API的关节数据
         float_joint = ctypes.c_float*7
-        self.joint_teleop_write = float_joint()
+        self.joint_teleop_write = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         #远程操控部分-读取gen72 API的关节数据
-        self.joint_teleop_read = float_joint()
+        self.joint_teleop_read = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         #数据观察部分-读取gen72 API的关节数据
-        self.joint_obs_read=float_joint()
+        self.joint_obs_read=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         #数据观察部分-上传关节以及夹爪开合度
         self.joint_obs_present=[0.0]*8
         #推理输出部分-接收模型推理的关节角度，写入gen72 API中
-        self.joint_send=float_joint()
+        self.joint_send=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        #----------------------move initial position----------------
+        joint_base = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        self.arm.right_arm.rm_movej(joint_base, 20, 0, 0, 1)
 
-        #gen72API
-        self.pDll.Movej_Cmd.argtypes = (ctypes.c_int, ctypes.c_float * 7, ctypes.c_byte, ctypes.c_float, ctypes.c_bool)
-        self.pDll.Movej_Cmd.restype = ctypes.c_int
-        self.pDll.Movej_CANFD.argtypes= (ctypes.c_int, ctypes.c_float * 7, ctypes.c_bool, ctypes.c_float)
-        self.pDll.Movej_CANFD.restype = ctypes.c_int
-        self.pDll.Get_Joint_Degree.argtypes = (ctypes.c_int, ctypes.c_float * 7)
-        self.pDll.Get_Joint_Degree.restype = ctypes.c_int
-        #self.pDll.Get_Gripper_State.argtypes = (ctypes.c_int, ctypes.POINTER(GripperState))
-        self.pDll.Get_Gripper_State.restype = ctypes.c_int
-        self.pDll.Set_Gripper_Position.argtypes = (ctypes.c_int, ctypes.c_int, ctypes.c_bool, ctypes.c_int)
-        self.pDll.Set_Gripper_Position.restype = ctypes.c_int
-        self.pDll.Write_Single_Register.argtypes = (ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int,ctypes.c_bool)
-        self.pDll.Write_Single_Register.restype = ctypes.c_int
-        self.pDll.Set_Modbus_Mode.argtypes = (ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_bool)
-        self.pDll.Set_Modbus_Mode.restype = ctypes.c_int
-        self.pDll.Set_Tool_Voltage.argtypes = (ctypes.c_int, ctypes.c_int, ctypes.c_bool)
-        self.pDll.Set_Tool_Voltage.restype = ctypes.c_int
-        self.pDll.Close_Modbus_Mode.argtypes = (ctypes.c_int, ctypes.c_int, ctypes.c_bool)
-        self.pDll.Close_Modbus_Mode.restype = ctypes.c_int
-        self.pDll.Get_Read_Holding_Registers.argtypes = (ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.POINTER(ctypes.c_int))
-        self.pDll.Get_Read_Holding_Registers.restype=ctypes.c_int
-        self.pDll.Set_High_Speed_Eth.argtypes = (ctypes.c_int, ctypes.c_byte, ctypes.c_bool)
-        self.pDll.Set_High_Speed_Eth.restype = ctypes.c_int
-        #gen72关节初始化，移动到零位
-        float_joint = ctypes.c_float * 7
-        joint_base = float_joint(*[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-        ret=self.pDll.Movej_Cmd(self.nSocket, joint_base, 50, 1, 0)
-        print('机械臂是否回到初始位置',ret)
-        #打开高速网络配置
-        self.pDll.Set_High_Speed_Eth(self.nSocket,1,0)
-        #设置末端工具接口电压为24v
-        self.pDll.Set_Tool_Voltage(self.nSocket,3,1)
-        #打开modbus模式
-        self.pDll.Set_Modbus_Mode(self.nSocket,1,115200,2,2,1)
-        #初始化夹爪为打开状态
-        self.pDll.Write_Single_Register(self.nSocket,1,40000,100,1,1)
+
 
 
     def connect(self):
@@ -488,21 +458,15 @@ class KochRobot:
             #电机角度到夹爪开合度的换算
             giper_trans = (((self.leader_pos[name][7]) / 1024) * 90 + 98)/ 62 * 100
             #调用透传API，控制gen72移动到目标位置
-
             giper_trans=round(giper_trans, 2)
-            for i in range(7):
-                self.joint_teleop_write[i] = ctypes.c_float(round(float(self.joint_teleop_write[i]), 2))
-
-
-            self.pDll.Movej_CANFD(self.nSocket,self.joint_teleop_write,FLAG_FOLLOW,0)
-            #夹爪控制
+            self.arm.rm_movej_canfd(self.joint_teleop_write, True, 0, 2, 100)
             #状态为张开，且需要关闭夹爪
             if (giper_trans < 21) and (self.gipflag == 1):
-                ret_giper = self.pDll.Write_Single_Register(self.nSocket, 1, 40000, 10, 1, 1)
+                self.arm.rm_write_single_register(self.write_params,10)
                 self.gipflag=0
             #状态为闭合，且需要张开夹爪
             if (giper_trans > 79) and (self.gipflag == 0):
-                ret_giper = self.pDll.Write_Single_Register(self.nSocket, 1, 40000, 100, 1, 1)
+                self.arm.rm_write_single_register(self.write_params,100)
                 self.gipflag=1
             self.logs[f"write_follower_{name}_goal_pos_dt_s"] = time.perf_counter() - now
 
@@ -569,21 +533,15 @@ class KochRobot:
         for name in self.leader_arms:
             now = time.perf_counter()
             self.pDll.Get_Joint_Degree(self.nSocket,self.joint_obs_read)  
-            #夹爪通信获取当前夹爪开合度
-            #   giper_read=ctypes.c_int()
-            #   self.pDll.Get_Read_Holding_Registers(self.nSocket,1,40005,1,ctypes.byref(giper_read))
-            #   #八位数组存储关节和夹爪数据
+ 
             self.joint_obs_present[:7]=self.joint_obs_read[:]
-            #   self.joint_obs_present[7]=giper_read.value
             if self.gipflag_send==1:
                 self.joint_obs_present[7]=100
             elif self.gipflag_send==0:
                 self.joint_obs_present[7]=10
-            # self.joint_obs_present = np.zeros(8)  # 创建一个包含八个0的 NumPy 数组
             self.logs[f"read_follower_{name}_pos_dt_s"] = time.perf_counter() - now
 
         # Create state by concatenating follower current position
-        #上传当前机械臂状态
         state = []
         self.joint_obs_present = np.round(self.joint_obs_present, 2)
         joint_array_np = np.array( self.joint_obs_present)
@@ -623,18 +581,12 @@ class KochRobot:
         follower_goal_pos_array = np.round(follower_goal_pos_array, 2)
         for i in range(7):
             self.joint_send[i]=follower_goal_pos_array[i]   
-        #giper_wirte=follower_goal_pos_array[7]
-        # for i in range(8):
-        #   print("八个电机数据为",follower_goal_pos_array[i])
-        # follower_goal_pos_array[7] = (follower_goal_pos_array[7] + 98)/ 62 * 100
         self.pDll.Movej_CANFD(self.nSocket,self.joint_send,FLAG_FOLLOW,0)
         if (follower_goal_pos_array[7] <21 ) and (self.gipflag_send == 1):
-            # ret_giper = self.pDll.Write_Single_Register(self.nSocket, 1, 40000, int(follower_goal_pos_array[7]), 1, 1)
             ret_giper = self.pDll.Write_Single_Register(self.nSocket, 1, 40000, 10 , 1, 1)
             self.gipflag_send=0
         #状态为闭合，且需要张开夹爪
         if (follower_goal_pos_array[7]>79) and (self.gipflag_send == 0):
-            # ret_giper = self.pDll.Write_Single_Register(self.nSocket, 1, 40000, int(follower_goal_pos_array[7]), 1, 1)
             ret_giper = self.pDll.Write_Single_Register(self.nSocket, 1, 40000, 100, 1, 1)
             self.gipflag_send=1
 
@@ -643,14 +595,12 @@ class KochRobot:
             raise RobotDeviceNotConnectedError(
                 "KochRobot is not connected. You need to run `robot.connect()` before disconnecting."
             )
-        # for name in self.follower_arms:
-        #     self.follower_arms[name].disconnect()
         for name in self.leader_arms:
             self.leader_arms[name].disconnect()
         for name in self.cameras:
             self.cameras[name].disconnect()
-        #modbus接口关闭
-        self.pDll.Close_Modbus_Mode(self.nSocket,1,1)
+        
+        self.arm.rm_delete_robot_arm()
         self.is_connected = False
 
     def __del__(self):
